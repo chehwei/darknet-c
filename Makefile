@@ -1,6 +1,6 @@
 TARGETS=lib/libdarknet-c.so lib/libdarknet-c.a  
 TOOLS=bin/convert_cfg_to_json
-TEST_TARGETS=
+TEST_TARGETS=bin/libtest
 
 DEBUG 		?= 1
 OPTIMIZE 	?= 0
@@ -16,9 +16,9 @@ CC=gcc -std=gnu99
 AR=ar
 LINKER=gcc -std=gnu99
 
-CFLAGS=-Wall
+CFLAGS=-Wall -Iinclude
 LDFLAGS=
-LIBS=-lm -lpthread
+LIBS=-lm -lpthread -ljson-c
 
 
 ifeq ($(DEBUG),1)
@@ -38,6 +38,9 @@ SOURCES	:= $(wildcard src/*.c)
 OBJECTS := $(SOURCES:src/%.c=obj/%.o)
 STATIC_OBJECTS := $(SOURCES:src/%.c=obj/static/%.o)
 
+LAYERS_SOURCES := $(wildcard src/layers/*.c)
+LAYERS_OBJECTS := $(LAYERS_SOURCES:src/layers/%.c=obj/layers/%.o)
+
 
 TEST_SOURCES := $(wildcard test/*.c)
 TEST_OBJECTS := $(TEST_SOURCES:test/%.c=obj/test/%.o)
@@ -45,17 +48,22 @@ TEST_OBJECTS := $(TEST_SOURCES:test/%.c=obj/test/%.o)
 TOOLS_SOURCES := $(wildcard tools/*.c)
 TOOLS_OBJECTS := $(TOOLS_SOURCES:tools/%.c=obj/tools/%.o)
 
-
 all: do_init $(TARGETS) $(TOOLS) $(TEST_TARGETS)
 
-lib/libdarknet-c.so: $(OBJECTS)
+lib/libdarknet-c.so: $(OBJECTS) $(LAYERS_OBJECTS)
 	$(LINKER) $(LDFLAGS) $(OPT) -fPIC -shared -o $@ $(OBJECTS) $(LIBS)
 	
-lib/libdarknet-c.a: $(STATIC_OBJECTS)
+lib/libdarknet-c.a: $(STATIC_OBJECTS) $(LAYERS_OBJECTS)
 	$(AR) crf $@ $(STATIC_OBJECTS)
+	
+$(LAYERS_OBJECTS): obj/layers/%.o : src/layers/%.c
+	$(CC) -o $@ -c $< $(CFLAGS)
 	
 bin/convert_cfg_to_json: $(TOOLS_OBJECTS)
 	$(LINKER) $(LDFLAGS) -o $@ $(TOOLS_OBJECTS) -ljson-c -lm -lpthread
+
+bin/libtest: $(TEST_OBJECTS) lib/libdarknet-c.a
+	$(LINKER) $(LDFLAGS) -o $@ $(TEST_OBJECTS) lib/libdarknet-c.a $(LIBS)
 
 
 $(OBJECTS): obj/%.o : src/%.c
@@ -72,10 +80,10 @@ $(TOOLS_OBJECTS): obj/tools/%.o : tools/%.c
 	
 .PHONY: do_init clean
 do_init:
-	mkdir -p bin obj obj/test obj/tools lib
+	mkdir -p bin obj obj/test obj/tools obj/layers lib
 	
 clean:
-	rm -f obj/*.o obj/test/*.o obj/static/*.o obj/tools/*.o $(TARGETS) $(TOOLS) $(TEST_TARGETS)
+	rm -f obj/*.o obj/test/*.o obj/static/*.o obj/tools/*.o obj/layers/*.o $(TARGETS) $(TOOLS) $(TEST_TARGETS)
 	
 
 	
