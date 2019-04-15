@@ -1,0 +1,13 @@
+data/
+obj/
+bin/
+lib/
+test/
+*.jpg
+*.png
+*.o
+*.so
+core*
+*.bak
+*.log
+*.bak.[0-9]*
